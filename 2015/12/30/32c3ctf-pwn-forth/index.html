@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>zlowram's blog</title>
+        <link href="/css/style.css" rel="stylesheet">
+        <link href="/css/prism.css" rel="stylesheet" />
+		<meta name="description" content="Yet another blog of another infosec enthusiast. CTFs, reversing, exploiting, coding and more.">
+		<meta name="keywords" content="hacking, CTF, write-up, exploiting, reversing">
+		<script>
+		  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+		  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+		  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+		  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+		  ga('create', 'UA-93249230-1', 'auto');
+		  ga('send', 'pageview');
+
+		</script>
+    </head>
+    <body>
+
+        <div class="container">
+
+            <div class="site-nav">
+
+            </div><!-- /.site-nav -->
+
+            <div class="site-header">
+                <pre>
+$$\       $$\                                   $$\                                                          
+$$ |      $$ |                                  $$ |                                                         
+$$$$$$$\  $$ | $$$$$$\   $$$$$$\      $$$$$$$$\ $$ | $$$$$$\  $$\  $$\  $$\  $$$$$$\  $$$$$$\  $$$$$$\$$$$\  
+$$  __$$\ $$ |$$  __$$\ $$  __$$\     \____$$  |$$ |$$  __$$\ $$ | $$ | $$ |$$  __$$\ \____$$\ $$  _$$  _$$\ 
+$$ |  $$ |$$ |$$ /  $$ |$$ /  $$ |      $$$$ _/ $$ |$$ /  $$ |$$ | $$ | $$ |$$ |  \__|$$$$$$$ |$$ / $$ / $$ |
+$$ |  $$ |$$ |$$ |  $$ |$$ |  $$ |     $$  _/   $$ |$$ |  $$ |$$ | $$ | $$ |$$ |     $$  __$$ |$$ | $$ | $$ |
+$$$$$$$  |$$ |\$$$$$$  |\$$$$$$$ |<span class="title-dot">$$\</span> $$$$$$$$\ $$ |\$$$$$$  |\$$$$$\$$$$  |$$ |  <span class="title-dot">$$\</span>\$$$$$$$ |$$ | $$ | $$ |
+\_______/ \__| \______/  \____$$ |<span class="title-dot">\__|</span>\________|\__| \______/  \_____\____/ \__|  <span class="title-dot">\__|</span>\_______|\__| \__| \__|
+                        $$\   $$ |                                                                           
+                        \$$$$$$  |                                                                           
+                         \______/                   
+                </pre>
+            </div><!-- /.site-header -->
+
+            <div class="row">
+                <div class="nav-bar">
+                    --| <a href="/">Home</a> |--
+                </div><!-- /.nav-bar -->
+
+                <div class="blog-post">
+                    <h2 class="post-title">32c3ctf Pwn Forth write-up</h2>
+                    <p class="post-meta">by zlowram on December 30, 2015</p> 
+                    <p>For this challenge we are provided with an IP and a port and we are told to connect and get a shell. If we connect, we see the following banner:</p>
+
+<pre><code class="language-markup">yForth? v0.2  Copyright (C) 2012  Luca Padovani
+This program comes with ABSOLUTELY NO WARRANTY.
+This is free software, and you are welcome to redistribute it
+under certain conditions; see LICENSE for details.
+</code></pre>
+
+<p>It seems it is a known piece of software, so we Google a little bit and we find
+out that Forth is an old programming language so the banner is of the yForth
+interpreter. As we are told to get a shell, we thought it would be possible to
+execute system commands in Forth, so using Google again we find the well-known
+site <a href="http://rosettacode.org/wiki/Execute_a_system_command#Forth">rosettacode</a>,
+where we can find a huge list of ways to execute system commands in different
+languages. In Forth, it happens to be like the folling way:</p>
+
+<pre><code class="language-markup">s&quot; ls&quot; system
+</code></pre>
+
+<p>This efectively run the &ldquo;ls&rdquo; command and we can see that there is a &ldquo;flag.txt&rdquo;
+file within the current working directory, so we just use the following snippet
+to read the file:</p>
+
+<pre><code class="language-markup">s&quot; cat flag.txt&quot; system
+</code></pre>
+
+<p>Finally, the flag:</p>
+
+<pre><code class="language-markup">32c3_rooDahPaeR3JaibahYeigoong
+</code></pre>
+
+<p>Greetings to my team <a href="http://testpurposes.net/">0xb33rs</a>!</p>
+
+                    <div id="disqus_thread"></div>
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+var disqus_shortname = 'nopatch'; // required: replace example with your forum shortname
+var disqus_identifier = '/2015/12/30/32c3ctf-pwn-forth/';
+
+/* * * DON'T EDIT BELOW THIS LINE * * */
+(function() {
+ var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+ dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+ (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+ })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+                </div><!-- /.blog-post -->
+
+            </div><!-- /.row -->
+
+        </div><!-- /.container -->
+        <div class="footer">
+            Powered by <a href="http://github.com/zlowram/blgo">blgo</a> 
+        </div><!-- /.footer -->
+
+        <!-- Prism.js -->
+        <script src="/js/prism.js"></script>
+    </body>
+</html>

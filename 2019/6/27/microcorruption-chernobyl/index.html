@@ -1,0 +1,292 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>zlowram's blog</title>
+        <link href="/css/style.css" rel="stylesheet">
+        <link href="/css/prism.css" rel="stylesheet" />
+		<meta name="description" content="Yet another blog of another infosec enthusiast. CTFs, reversing, exploiting, coding and more.">
+		<meta name="keywords" content="hacking, CTF, write-up, exploiting, reversing">
+		<script>
+		  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+		  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+		  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+		  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+		  ga('create', 'UA-93249230-1', 'auto');
+		  ga('send', 'pageview');
+
+		</script>
+    </head>
+    <body>
+
+        <div class="container">
+
+            <div class="site-nav">
+
+            </div><!-- /.site-nav -->
+
+            <div class="site-header">
+                <pre>
+$$\       $$\                                   $$\                                                          
+$$ |      $$ |                                  $$ |                                                         
+$$$$$$$\  $$ | $$$$$$\   $$$$$$\      $$$$$$$$\ $$ | $$$$$$\  $$\  $$\  $$\  $$$$$$\  $$$$$$\  $$$$$$\$$$$\  
+$$  __$$\ $$ |$$  __$$\ $$  __$$\     \____$$  |$$ |$$  __$$\ $$ | $$ | $$ |$$  __$$\ \____$$\ $$  _$$  _$$\ 
+$$ |  $$ |$$ |$$ /  $$ |$$ /  $$ |      $$$$ _/ $$ |$$ /  $$ |$$ | $$ | $$ |$$ |  \__|$$$$$$$ |$$ / $$ / $$ |
+$$ |  $$ |$$ |$$ |  $$ |$$ |  $$ |     $$  _/   $$ |$$ |  $$ |$$ | $$ | $$ |$$ |     $$  __$$ |$$ | $$ | $$ |
+$$$$$$$  |$$ |\$$$$$$  |\$$$$$$$ |<span class="title-dot">$$\</span> $$$$$$$$\ $$ |\$$$$$$  |\$$$$$\$$$$  |$$ |  <span class="title-dot">$$\</span>\$$$$$$$ |$$ | $$ | $$ |
+\_______/ \__| \______/  \____$$ |<span class="title-dot">\__|</span>\________|\__| \______/  \_____\____/ \__|  <span class="title-dot">\__|</span>\_______|\__| \__| \__|
+                        $$\   $$ |                                                                           
+                        \$$$$$$  |                                                                           
+                         \______/                   
+                </pre>
+            </div><!-- /.site-header -->
+
+            <div class="row">
+                <div class="nav-bar">
+                    --| <a href="/">Home</a> |--
+                </div><!-- /.nav-bar -->
+
+                <div class="blog-post">
+                    <h2 class="post-title">Microcorruption's Chernobyl write-up</h2>
+                    <p class="post-meta">by zlowram on June 27, 2019</p> 
+                    <p>This is nothing else than another write-up for the Chernobyl level of the Microcorruption challenges. Why do I write this? Easy, I found this challenge pretty interesting and complete so I think it&rsquo;s worth doing the write-up to remind myself how I did it and, in the meantime, if someone else may find this useful that&rsquo;s even better!</p>
+
+<p>So let&rsquo;s get started by reverse engineering all the code to learn how this lock works.</p>
+
+<h2>Reverse Engineering</h2>
+
+<p>At a first glance to the disassembly we can quickly spot a function called <code>run</code> that has the main loop, so we set this as the starting point.</p>
+
+<h3>Run</h3>
+
+<p>First it performs the initialization by creating the hash table structure and then it jumps to the main loop.</p>
+
+<p>The main loop asks for user input to later process it. It will look at the first charecter of the input, taking into account 2 possibilities:</p>
+
+<ul>
+<li>&lsquo;a&rsquo;: Corresponds to the <code>access</code> command, which is used to authenticate the user. Syntax: access [username] [pin]</li>
+<li>&lsquo;n&rsquo;: Corresponds, most likely, to the <code>new</code> command (as only the first letter is checked and the length is 3 chars). Syntax: new [username] [pin]</li>
+</ul>
+
+<p>Then the password is sort of hashed using the code detailed below (already translated to pseudocode)</p>
+
+<pre><code class="language-python">r10 = 0
+r11 = &quot;password&quot;
+for i in r11:
+  if i != 0x3b:
+    r12 = r10
+    r12 = r12 * 4
+    r12 += r10
+    r12 = r12 * 2
+    r10 = i
+    r10 -= 48
+    r10 += r12
+</code></pre>
+
+<h4>The Hash Table</h4>
+
+<p>The reversing of the <code>create_hash_table</code> function reveals how that data structure is layed out in memory. It&rsquo;s entirely created within the HEAP, and could be represented as follows:</p>
+
+<pre><code class="language-markup">+---------------+ 0x0
+|       0       |     Number of entries in table
++---------------+ 0x2
+|       3       |     Number of bins (2^3)
++---------------+ 0x4
+|	      5       |     Max. entries per bin
++---------------+ 0x6
+|      ptr      |-------------------------------------------&gt;+-----------------------+
++---------------+ 0x8                                        | 0 2 4 6 8 10 12 14 16 | list of ptr
+|      ptr      |-----------&gt;+---------------------+         +-----------------------+
++---------------+            |       sz: 16        |           | | .. .. .. .. .. ..
+                             +---------------------+           | +-- Malloc(90) -- bin 1 (this is where username and password are stored)
+                             number of entries per bin         +-- Malloc(90) -- bin 2
+</code></pre>
+
+<h4>Access</h4>
+
+<p>It calls the <code>get_from_table</code> function passing the pointer to the hash table, a pointer to the username and a pointer to the &ldquo;hashed&rdquo; password. It computes the hash from the username and it computes its modulo against the number of bins in the hash table (initially, 8), which will result in the bin number for that username. Additionally, the number of entries per bin is retrieved in order to iterate within that bin to look for the particular entry. If found it will return the stored &ldquo;hashed&rdquo; password, stored in r15 (which is placed 0x10 from the beggining of the bin), otherwise -1.</p>
+
+<p>If the result of the call is -1, it will print a &ldquo;no such box&rdquo; message and ask for input again. If the user is found, the password is check to the one that was introduced. Additionally, the high bit is checked in order to know if the user had &ldquo;privileges&rdquo; or not. It doesn&rsquo;t make any difference since only a message is printed and nothing lock-related happens.</p>
+
+<h4>New</h4>
+
+<p>The <code>new</code> command is meant to create new users on the system. First it does the same as the <code>access</code> command, calling the <code>get_from_table</code> function to check if the user already exists. If it does, a message will be displayed saying &ldquo;User already has an account&rdquo;. If it doesn&rsquo;t, it will call the add <code>add_to_table</code> function.</p>
+
+<p>The <code>add_to_table</code> function receives as parameters a pointer to the hash table, a pointer to the username and a pointer to the &ldquo;hashed&rdquo; password. First it will check if the hash table still has some room available, by checking the element count (first element on the hash table structure) against the table capacity (2 to the power of hash_table[1]). If the table is full, the <code>rehash</code> function will be called to increase its capacity to make room for the new user that will be added.</p>
+
+<p>Once the <code>rehash</code> returns, or even if it wasn&rsquo;t called, then the hash of the username is calculated. Then, it&rsquo;s modulo&rsquo;ed by the number of bins within the hash table in order to know the destination bin for the new user. Once it has the bin number, it obtains the number of entries that are currently within that bin (hash_table[4] + (bin number * 2)). This number will then be used to compute the exact offset within the destination bin where the username and the &lsquo;hashed&rsquo; will be copied. The username will be at that exact offset, the &lsquo;hashed&rsquo; pin to that offset + 0x10.</p>
+
+<h4>Rehash function</h4>
+
+<p>This probably is the most important function because it&rsquo;s were the <code>free</code> function gets called twice, and most likely is where the vulnerability of this binary will reside if the <code>free</code> implementation is the same as the &ldquo;Algiers&rdquo; challenge, which was vulnerable to the &ldquo;unlink&rdquo; method.</p>
+
+<p>This function receives two parameters, one is the hash table pointer and the other the new capacity (number of bins). Basiacally, it does two allocations of the same size as number of bins. Each of them will serve as the list of pointers to bins and the list of number of items in each bin, respectively. Those pointer will be saved in their corresponding fields within the hash table structure, as well as the new capacity. After this, new allocations will be made to create the new bins, whose size will be computed with the following formula: hash_table[2] * 8 + hash_table[2] * 2. Once all is done, the new hash table with the updated capacity is already created. Now it will loop through the old bins and copy the entries to the new table by calling the <code>add_to_table</code> function.</p>
+
+<p>Then, the remaining step is to free the old bins and the old lists. To do so, it will iterate first throught the old list of bins, freeing each entry. Then it will just free the list of pointers to bins and the list of number of elements per bin.</p>
+
+<h3>The HEAP</h3>
+
+<p>Let&rsquo;s do now a recap of how the HEAP worked:</p>
+
+<h4>Chunk</h4>
+
+<pre><code class="language-markup">+----+----+--------------------+------+
+| BK | FW | SZ (with used bit) | DATA |
++----+----+--------------------+------+
+</code></pre>
+
+<p>BK: Backwards pointer to previous chunk
+FW: Forward pointer to next chunk
+SZ: Size of current block with LSB indicating if used or not (the size saved here is requested size * 2)</p>
+
+<h4>Free</h4>
+
+<p>The Free function can be written in C as follows:</p>
+
+<pre><code class="language-C">struct chunk_header_struct {
+  uint16 bk;
+  uint16 fw;
+  unit16 sz;
+} chunk_header;
+
+
+uint16 current_chunk = (chunk_header *)(r15 - 0x6); // r15 contains the offset to be freed
+current_chunk-&gt;sz &amp;= 0xfffe; // unsetting the used bit
+
+/* Coalesce with previous chunk if not in use */
+if (current_chunk-&gt;bk-&gt;sz &amp; 0x1) {
+  current_chunk-&gt;bk-&gt;sz += 0x6;
+  current_chunk-&gt;bk-&gt;sz += current_chunk-&gt;sz;
+  current_chunk-&gt;bk-&gt;fw = current_chunk-&gt;fw; // &lt;-- Vulnerable here
+  current_chunk-&gt;fw-&gt;bk = current_chunk-&gt;bk; // &lt;-- Also vulnerable here
+  current_chunk = current_chunk-&gt;bk;
+}
+
+/* Coalesce with next chunk if not in use */
+if (current_chunk-&gt;fw-&gt;sz &amp; 0x1) { // Coalesce with next chunk if not in use
+  current_chunk-&gt;fw-&gt;sz += current_chunk-&gt;sz;
+  current_chunk-&gt;fw-&gt;sz += 6;
+  current_chunk-&gt;fw = current_chunk-&gt;fw-&gt;fw;
+  current_chunk-&gt;fw-&gt;bk = current_chunk;
+}
+</code></pre>
+
+<p>The Free function is vulnerable to the &ldquo;unlink&rdquo; method. That is, if we are able to manipulate the chunk metadata we will have the ability to write an arbitrary 2 byte value to any arbitrary offset (write-what-where primitive). The following two diagrams show how the data should be replaced within the chunk metadata to successfuly achieve the write-what-where primitive:</p>
+
+<pre><code class="language-markup">+------------------------------+
+| WHERE-0x2 | WHAT | SZ | DATA |
++------------------------------+
+
++--------------------------+
+| WHAT | WHERE | SZ | DATA |
++--------------------------+
+</code></pre>
+
+<h2>Exploiting it</h2>
+
+<h3>The strategy</h3>
+
+<p>With all the knowledge we have acquired we&rsquo;re now able to define an exploit strategy. The vulnerability resides in the Free function for the current heap implementation (as seen in the Algiers level) so we will need to be able to overwrite, somehow, the chunk headers.</p>
+
+<p>This becomes easy since we fully know when and why the chunks are freed. Now we need to know how to overwrite the chunk metadata. Overflowing a bin is possible due to the fact that you can fit more username-pin pairs in a bin than its size. We can force this by generating enough collisions on the hash function. A bin fits 5 username-pin pairs, but a call to the rehash function won&rsquo;t happen until the hash table have 12 elements. If we manage to store a 6th username-pin pair it will directly overwrite the next chunk&rsquo;s header.</p>
+
+<p>Leveraging this should allow us to write a reliable payload to trigger the write-what-where primitive when the bin is freed.</p>
+
+<h3>Creating collisions</h3>
+
+<p>We need to consistently trigger hash colisions to be able to place users in the same bin. Since we will need to actually create those users for the exploit, let&rsquo;s code the hashing algorithm in order to generate usernames that will end up in the same bin.</p>
+
+<pre><code class="language-python">#!/usr/bin/env python
+
+import sys
+
+def hash(username):
+    r14 = username
+    r15 = 0
+    for i in r14:
+      r13 = ord(i)
+      r13 += r15
+      r15 = r13
+      r15 = (r15 &lt;&lt; 5) &amp; 0xffff
+      r15 = (r15 - r13) &amp; 0xffff
+      r15 = r15 % 8
+    return r15
+
+for i in range(0,100):
+    result = hash(str(i))
+    if result == 0:
+        print &quot;Username: {}, Bin: {}&quot;.format(i, result)
+</code></pre>
+
+<h3>The payload</h3>
+
+<p>The following diagram pictures how the overflow of the bins look like:</p>
+
+<pre><code class="language-markup">         BIN 1        |        BIN 2
++-------------------------------------------+
+| BK | FW | SZ | DATA | BK | FW | SZ | DATA |
++-------------------------------------------+
+               ^-- overflow          ^ Free
+</code></pre>
+
+<p>As we already said before, we need to fit enough users within Bin 1 so it overflows into Bin 2. However, after playing around with the payload I suddenly realized that we can&rsquo;t just overwrite the chunk metadata of any bin because the <code>rehash</code> function calls <code>malloc</code> before freeing, and was causing the program to stop due to Heap Exhaustion.</p>
+
+<p>The thing is that the malloc implementation traverses all the list of chunks looking for a chunk not in use of a particular size. It knows it had traversed all the heap when the FW pointer points to an address lower than the one of the first chunk.</p>
+
+<p>Yep, you got it right, if we overwrite the BK and FW pointers of the chunk we want to use for the <code>unlink</code> exploit, it will make malloc think that the heap is already exhausted.</p>
+
+<p>In order to fix this, we need to manipulate the actual list of chunks in order to allow malloc to walk over the overwritten chunk that will trigger the write-what-where primitve. How can we do that? By overwriting the FW pointer of the previous chunk and make it point to the next chunk, leaving out from the heap the chunk that will hold the actual payload.</p>
+
+<p>Now we might think that we got it, and that we just need to fill the first bin to overwrite the second one in order to remove the third one from the HEAP. Then the question is, how we can modify the chunk metadata of the third bin? The first answer is overflowing the second bin, but that requries more than 11 new users&hellip; and yep, the 12th user will trigger the rehash already without having overwritten that data!</p>
+
+<p>But wait, what if we keep filling the first bin after overwriting the first one? Yep, you got it right again, you can overwrite chunk 3 metadata with the username of the 11th user. Then we just need to add another dummy user to trigger the rehash method and get the program to free our manipulated chunk that actually contains the payload.</p>
+
+<p>Taking into account everything we know now, we should be able to write a script that does the following:</p>
+
+<ol>
+<li>Create 5 users that fall within the same bin, let&rsquo;s say bin 1, so the 6th user will actually overwrite the next chunk metadata.</li>
+<li>Create a user whose username contains the metadata to overwrite (FW pointer to next-next chunk) and make sure it will fall into the same bin as the previous 5 users.</li>
+<li>Create 4 more users that fall within the same bin as the other users we created. The 5th user will overwrite the next (of the next) chunk metadata. This overwritten chunk will hold the actual payload that will be triggered when the program frees that specific chunk.</li>
+<li>Create an additional user that will be the 12th user and will trigger the rehash function. It doesn&rsquo;t matter which bin it will the user be saved in.</li>
+</ol>
+
+<p>It is important to note that we will leverage this last user to include our shellcode in, since the input for that command will not be processed before the call to the rehash function, so we will be able to use shellcode with nullbytes.</p>
+
+<p>Basically, we will use the write-what-where primitive to overwrite a RET address within memory and redirect the execution flow to our stored shellcode.</p>
+
+<p>This post is already huge, so I will skip the script and directly include the final payload:</p>
+
+<pre><code>6e6577203720313233343b6e657720313020313233343b6e657720313820313233343b6e657720323120313233343b6e657720323920313233343b6e6577201234bc5151127720313233343b6e657720333220313233343b6e657720343320313233343b6e657720353420313233343b6e657720363520313233343b6e657720414141414141843eea3d51696c20313233343b6e65772041023c78403041324000ffb01210002031323334
+</code></pre>
+
+<p>Aaaand that was it!</p>
+
+                    <div id="disqus_thread"></div>
+<script type="text/javascript">
+    /* * * CONFIGURATION VARIABLES: EDIT BEFORE PASTING INTO YOUR WEBPAGE * * */
+var disqus_shortname = 'nopatch'; // required: replace example with your forum shortname
+var disqus_identifier = '/2019/6/27/microcorruption-chernobyl/';
+
+/* * * DON'T EDIT BELOW THIS LINE * * */
+(function() {
+ var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+ dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+ (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+ })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+                </div><!-- /.blog-post -->
+
+            </div><!-- /.row -->
+
+        </div><!-- /.container -->
+        <div class="footer">
+            Powered by <a href="http://github.com/zlowram/blgo">blgo</a> 
+        </div><!-- /.footer -->
+
+        <!-- Prism.js -->
+        <script src="/js/prism.js"></script>
+    </body>
+</html>

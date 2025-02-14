@@ -28,7 +28,7 @@ body {
   display: flex;
   flex-direction: column;
   background-color: white;
-  max-width: 350px;
+  max-width: 310px;
   padding: 20px;
   border-radius: 15px;
   border: 1px solid var(--gray-950);
@@ -87,7 +87,7 @@ body {
 }
 
 .card p {
-  font-weight: 800;
+  font-weight: 500;
   color: var(--gray-500);
 }
 

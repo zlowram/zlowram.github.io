@@ -1,0 +1,105 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap');
+
+:root {
+  --green: hsl(75, 94%, 57%);
+  --grey-700: hsl(0, 0%, 20%);
+  --grey-800: hsl(0, 0%, 12%);
+  --grey-900: hsl(0, 0%, 8%);
+}
+
+* {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  font-family: "Inter", serif;
+  font-optical-sizing: auto;
+  font-style: normal;
+  background-color: var(--grey-900);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.card {
+  background-color: var(--grey-800);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+  padding: 3vh;
+  border-radius: 20px;
+  width: 350px;
+}
+
+.card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  justify-content: center;
+  align-items: center;
+}
+
+.card-header img {
+  clip-path: circle(50%);
+  max-width: 100px;
+}
+
+.name-location {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+}
+
+.name-location h1 {
+  font-weight: 700;
+}
+
+.name-location p {
+  font-weight: 600;
+  color: var(--green);
+}
+
+.description {
+  font-weight: 400;
+}
+
+.links {
+  list-style: none;
+  width: 100%;
+}
+
+.links a {
+  background-color: var(--grey-700);
+  color: white;
+  display: block;
+  margin: 15px;
+  padding: 15px;
+  border-radius: 8px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+
+.links a:hover {
+  color: var(--grey-800);
+  background-color: var(--green);
+}
+
+.attribution {
+  font-size: 11px;
+  text-align: center;
+  margin-top: 10px;
+}
+
+.attribution a {
+  color: hsl(228, 45%, 44%);
+}
+

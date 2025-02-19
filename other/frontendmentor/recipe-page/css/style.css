@@ -96,6 +96,10 @@ body {
   color: var(--stone-600);
 }
 
+.preparation-time ul > li::marker {
+  color: var(--rose-800);
+}
+
 .preparation-time ul p {
   margin-left: 25px;
 }
@@ -115,6 +119,10 @@ body {
   gap: 15px;
   padding: 20px 0px 0px 15px;
   color: var(--stone-600);
+}
+
+.ingredients ul > li::marker {
+  color: var(--brown-800);
 }
 
 .ingredients ul p {
